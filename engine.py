@@ -33,14 +33,15 @@ def similarity(v1, v2):
 
 def temperature(rank, total):
     if rank <= 10:
-        return 100 - rank
-    if rank <= 100:
-        return 90 - (rank - 10) * 0.3
-    if rank <= 1000:
-        return 60 - (rank - 100) * 0.04
-    if rank <= 5000:
-        return 20 - (rank - 1000) * 0.007
-    return -10
+        return round(100 - (rank - 1) / 10 * 10, 2)
+    elif rank <= 100:
+        return round(90 - (rank - 10) / 90 * 30, 2)
+    elif rank <= 1000:
+        return round(60 - (rank - 100) / 900 * 40, 2)
+    elif rank <= 5000:
+        return round(20 - (rank - 1000) / 4000 * 30, 2)
+    else:
+        return round(-10 - (rank - 5000) / (total_words - 5000) * 10, 2)
 
 
 def temp_emoji(t):
@@ -179,3 +180,4 @@ class GameManager:
 
     def get(self, table_id):
         return self.tables.get(table_id)
+
