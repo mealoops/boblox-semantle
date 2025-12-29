@@ -31,7 +31,7 @@ class NewGameRequest(BaseModel):
 # TÉLÉCHARGER GLOVE SI ABSENT
 # -------------------------
 GLOVE_FILE = "glove_cemantle_filtered.txt.gz"
-GLOVE_URL = "https://ton-lien-google-drive-ou-autre.com/glove_cemantle_filtered.txt.gz"
+GLOVE_URL = "https://drive.usercontent.google.com/download?id=1xBJun3ZRx7y25YMZWCve6t6hTEosnG4u&export=download&authuser=1&confirm=t&uuid=fb049900-bef1-4993-aeda-497c5f148eef&at=ANTm3czvDAIkeFl7cliMlxz8oEva:1766971120225"
 
 if not os.path.exists(GLOVE_FILE):
     print(f"⏳ Téléchargement de {GLOVE_FILE}...")
@@ -226,3 +226,4 @@ def reveal_secret():
         "secret_word": current_secret_word,
         "message": "Partie terminée"
     }
+
