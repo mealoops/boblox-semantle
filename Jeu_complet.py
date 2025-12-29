@@ -1,7 +1,6 @@
 import numpy as np
 import random
 from collections import defaultdict
-import gzip
 
 # =========================
 # PARAMETERS
@@ -321,3 +320,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
