@@ -27,7 +27,7 @@ LOCAL_FILE = "glove_cemantle_filtered.txt.gz"
 
 # Téléchargement si le fichier n'existe pas déjà
 if not os.path.exists(LOCAL_FILE):
-    url = f"https://drive.google.com/file/d/1xBJun3ZRx7y25YMZWCve6t6hTEosnG4u/view?usp=sharing"
+    url = f"https://drive.google.com/uc?id=1xBJun3ZRx7y25YMZWCve6t6hTEosnG4u"
     gdown.download(url, LOCAL_FILE, quiet=False)
 
 # Ouverture du fichier gzip
@@ -85,6 +85,7 @@ def get_hint(level: int):
 def get_top():
     top_10 = [{"mot": word, "score": score} for word, score in ranking[:10]]
     return {"top": top_10}
+
 
 
 
