@@ -4,6 +4,7 @@ import random
 import os
 import numpy as np
 import Jeu_complet
+import gdown
 
 app = FastAPI()
 
@@ -18,8 +19,16 @@ class GuessRequest(BaseModel):
 # -------------------------
 themes = Jeu_complet.load_secret_words("mots_secrets.txt")
 
+# Chemin du fichier GloVe
 EMBEDDING_PATH = "glove_cemantle_filtered.txt"
 MAX_WORDS = 50000
+
+# Si le fichier n'existe pas, le télécharger depuis Google Drive
+GDRIVE_ID = "1xBJun3ZRx7y25YMZWCve6t6hTEosnG4u"  # ton fichier txt sur Drive
+if not os.path.exists(EMBEDDING_PATH):
+    print("⏳ Téléchargement du fichier GloVe...")
+    url = f"https://drive.google.com/uc?id={GDRIVE_ID}"
+    gdown.download(url, EMBEDDING_PATH, quiet=False)
 
 # Charger les embeddings
 print("⏳ Chargement des embeddings GloVe...")
