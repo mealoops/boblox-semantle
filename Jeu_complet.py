@@ -6,7 +6,7 @@ import gzip
 # =========================
 # PARAMETERS
 # =========================
-EMBEDDING_PATH = "glove_cemantle_filtered.txt.gz"
+EMBEDDING_PATH = "glove_cemantle_filtered.txt"
 SECRET_WORDS_PATH = "mots_secrets.txt"
 MAX_WORDS = 50000
 
@@ -57,11 +57,11 @@ def load_secret_words(path):
         return None
 
 # =========================
-# LOAD GLOVE EMBEDDINGS (gzip)
+# LOAD GLOVE EMBEDDINGS (txt)
 # =========================
 def load_glove(path, max_words):
     embeddings = {}
-    with gzip.open(path, "rt", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
             if i >= max_words:
                 break
@@ -319,4 +319,5 @@ def main():
         print(f"   {i:2}. {word:15} ({score:.4f})")
 
 if __name__ == "__main__":
+
     main()
