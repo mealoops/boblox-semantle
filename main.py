@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import random
 import numpy as np
+import os
 from collections import defaultdict
 import Jeu_complet  # ton script existant
 
@@ -84,5 +85,6 @@ def get_hint(level: int):
 def get_top():
     top_10 = [{"mot": word, "score": score} for word, score in ranking[:10]]
     return {"top": top_10}
+
 
 
