@@ -60,7 +60,15 @@ def load_secret_words(path):
 # =========================
 def load_glove(path, max_words):
     embeddings = {}
-    with open(path, "r", encoding="utf-8") as f:
+    
+    # Détecter si c'est un fichier .gz
+    if path.endswith('.gz'):
+        import gzip
+        open_func = lambda p: gzip.open(p, 'rt', encoding='utf-8')
+    else:
+        open_func = lambda p: open(p, 'r', encoding='utf-8')
+    
+    with open_func(path) as f:
         for i, line in enumerate(f):
             if i >= max_words:
                 break
@@ -77,8 +85,8 @@ def load_glove(path, max_words):
                 embeddings[word] = vector
             except:
                 continue
+    
     return embeddings
-
 # =========================
 # SIMILARITY CALCULATION
 # =========================
@@ -159,3 +167,4 @@ def get_hint(ranking, level, ranks):
             hint_word, _ = random.choice(choices)
             return f"💡 TRÈS PROCHE: '{hint_word}' (rang {ranks[hint_word]})"
     return None
+
