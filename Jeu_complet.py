@@ -80,81 +80,6 @@ def load_glove(path, max_words):
     return embeddings
 
 # =========================
-# GAME MODE SELECTION
-# =========================
-def select_game_mode(themes):
-    print("\n" + "=" * 60)
-    print("🎮 CEMANTIX - Sélection du Mode de Jeu")
-    print("=" * 60)
-    print("\n1️⃣  Mode THÈME")
-    print("2️⃣  Mode ALÉATOIRE")
-    print("3️⃣  Mode DIFFICILE")
-    print("0️⃣  Quitter")
-    
-    while True:
-        choice = input("\n👉 Votre choix (1/2/3/0): ").strip()
-        
-        if choice == "0":
-            print("👋 À bientôt!")
-            return None, None
-        
-        elif choice == "1":
-            return select_theme_mode(themes)
-        
-        elif choice == "2":
-            all_words = []
-            for words in themes.values():
-                all_words.extend(words)
-            
-            if not all_words:
-                print("❌ Aucun mot secret disponible!")
-                return None, None
-            
-            secret = random.choice(all_words)
-            print(f"\n✅ Mode ALÉATOIRE activé!\n")
-            return "random", secret
-        
-        elif choice == "3":
-            print(f"\n✅ Mode DIFFICILE activé!\n")
-            return "hard", None
-        
-        else:
-            print("❌ Choix invalide.")
-
-def select_theme_mode(themes):
-    print("\n" + "=" * 60)
-    print("📚 SÉLECTION DU THÈME")
-    print("=" * 60)
-    
-    theme_list = list(themes.keys())
-    
-    for i, theme in enumerate(theme_list, 1):
-        word_count = len(themes[theme])
-        print(f"{i:2}. {theme:20} ({word_count} mots)")
-    
-    print(" 0. Retour")
-    
-    while True:
-        choice = input("\n👉 Choisir un thème: ").strip()
-        
-        if choice == "0":
-            return select_game_mode(themes)
-        
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(theme_list):
-                selected_theme = theme_list[idx]
-                secret = random.choice(themes[selected_theme])
-                
-                print(f"\n✅ Thème '{selected_theme}' sélectionné!\n")
-                
-                return selected_theme, secret
-            else:
-                print("❌ Numéro invalide.")
-        except ValueError:
-            print("❌ Entrez un numéro.")
-
-# =========================
 # SIMILARITY CALCULATION
 # =========================
 def vector_similarity(v1, v2):
@@ -170,8 +95,6 @@ def vector_similarity(v1, v2):
 def build_ranking(secret_word, embeddings):
     secret_vec = embeddings[secret_word]
     scores = []
-    
-    print(f"🔍 Calcul des similarités pour '{secret_word}'...")
     
     for word, vec in embeddings.items():
         score = vector_similarity(secret_vec, vec)
@@ -199,6 +122,18 @@ def temperature(rank, total_words):
     else:
         return round(-10 - (rank - 5000) / (total_words - 5000) * 10, 2)
 
+def get_temperature_emoji(temp):
+    if temp > 80:
+        return "🔥"
+    elif temp > 50:
+        return "🌞"
+    elif temp > 20:
+        return "🌤️"
+    elif temp > 0:
+        return "❄️"
+    else:
+        return "🥶"
+
 # =========================
 # HINT SYSTEM
 # =========================
@@ -208,116 +143,19 @@ def get_hint(ranking, level, ranks):
             choices = ranking[3000:5000]
             hint_word, _ = random.choice(choices)
             return f"💡 Mot éloigné: '{hint_word}' (rang {ranks[hint_word]})"
-    
     elif level == 2:
         if len(ranking) > 1000:
             choices = ranking[500:1000]
             hint_word, _ = random.choice(choices)
             return f"💡 Mot moyennement proche: '{hint_word}' (rang {ranks[hint_word]})"
-    
     elif level == 3:
         if len(ranking) > 500:
             choices = ranking[100:500]
             hint_word, _ = random.choice(choices)
             return f"💡 Mot proche: '{hint_word}' (rang {ranks[hint_word]})"
-    
     elif level == 4:
         if len(ranking) > 20:
             choices = ranking[2:20]
             hint_word, _ = random.choice(choices)
             return f"💡 TRÈS PROCHE: '{hint_word}' (rang {ranks[hint_word]})"
-    
     return None
-
-# =========================
-# MAIN GAME
-# =========================
-def main():
-    print("🎮 CEMANTIX - Version Vectorielle Pure")
-    print("=" * 60)
-    print("Système de ranking basé sur:")
-    print("  ✓ Similarité cosinus (80%)")
-    print("  ✓ Distance euclidienne (20%)")
-    print("=" * 60)
-    
-    themes = load_secret_words(SECRET_WORDS_PATH)
-    if not themes:
-        print("\n❌ Impossible de continuer sans fichier de mots secrets.")
-        return
-    
-    print(f"\n⏳ Chargement des embeddings GloVe...")
-    embeddings = load_glove(EMBEDDING_PATH, MAX_WORDS)
-    print(f"✅ {len(embeddings)} mots chargés.")
-    
-    mode, secret_word = select_game_mode(themes)
-    if mode is None:
-        return
-    if mode == "hard":
-        secret_word = random.choice(list(embeddings.keys()))
-    if secret_word not in embeddings:
-        print(f"\n❌ Le mot '{secret_word}' n'existe pas dans le fichier GloVe!")
-        return
-    
-    ranking = build_ranking(secret_word, embeddings)
-    ranks = build_rank_dict(ranking)
-    
-    print("\n✅ Prêt!\n")
-    print("💡 Commandes: mot | $hint1-4 | $top | $quit\n")
-    
-    attempts = 0
-    
-    while True:
-        guess = input("🔎 Mot: ").lower().strip()
-        
-        if guess == "$quit":
-            print(f"\n😔 Le mot était: {secret_word}")
-            break
-        
-        if guess == "$top":
-            print("\n🏆 Top 20:")
-            for i, (word, score) in enumerate(ranking[:20], 1):
-                print(f"   {i:2}. {word:15} (score: {score:.4f})")
-            print()
-            continue
-        
-        if guess.startswith("$hint"):
-            try:
-                level = int(guess[-1])
-                hint = get_hint(ranking, level, ranks)
-                attempts += 1
-                if hint:
-                    print(f"{hint}\n")
-                else:
-                    print("❌ Indice non disponible\n")
-            except:
-                print("❌ Utilisez $hint1, $hint2, $hint3 ou $hint4\n")
-            continue
-        
-        attempts += 1
-        
-        if guess not in embeddings:
-            print("❌ Mot inconnu\n")
-            continue
-        
-        rank = ranks[guess]
-        temp = temperature(rank, len(ranking))
-        
-        # Affichage minimaliste : mot, température, rang
-        print(f"{guess:15} {temp:6.2f}°C   #{rank}\n")
-        
-        if rank == 1:
-            print(f"🎉 GAGNÉ! '{secret_word}' en {attempts} essais!\n")
-            break
-    
-    print("\n" + "=" * 60)
-    print("📊 RÉSULTATS FINAUX")
-    print("=" * 60)
-    print(f"Essais: {attempts}")
-    print("\n🔝 Top 30:")
-    for i, (word, score) in enumerate(ranking[:30], 1):
-        print(f"   {i:2}. {word:15} ({score:.4f})")
-
-if __name__ == "__main__":
-
-    main()
-
