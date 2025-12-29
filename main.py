@@ -1,10 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import random
-import numpy as np
 import os
-from collections import defaultdict
-import Jeu_complet  # ton script existant
+import numpy as np
+import Jeu_complet
 
 app = FastAPI()
 
@@ -17,25 +16,15 @@ class GuessRequest(BaseModel):
 # -------------------------
 # INIT DU JEU
 # -------------------------
-# Charger les fichiers et embeddings une seule fois au démarrage
 themes = Jeu_complet.load_secret_words("mots_secrets.txt")
-import gdown
 
-GDRIVE_ID = "1AbCdefGHIjklMNopQrsTUvWxYz"  # remplace par ton ID
-LOCAL_FILE = "glove_cemantle_filtered.txt.gz"
+EMBEDDING_PATH = "glove_cemantle_filtered.txt"
+MAX_WORDS = 50000
 
-# Téléchargement si le fichier n'existe pas déjà
-if not os.path.exists(LOCAL_FILE):
-    url = f"https://drive.google.com/uc?id=1oLJRH97QGKeBbVxAaqUXirugUQL2Zlgi"
-    gdown.download(url, LOCAL_FILE, quiet=False)
-
-# Ouverture du fichier gzip
-with open(LOCAL_FILE, "r", encoding="utf-8") as f:
-    for i, line in enumerate(f):
-        parts = line.strip().split()
-        word = parts[0]
-        vector = parts[1:]
-        embeddings[word] = [float(x) for x in vector]
+# Charger les embeddings
+print("⏳ Chargement des embeddings GloVe...")
+embeddings = Jeu_complet.load_glove(EMBEDDING_PATH, MAX_WORDS)
+print(f"✅ {len(embeddings)} mots chargés.")
 
 # Choisir un mot secret au hasard pour cette session
 secret_word = random.choice(list(embeddings.keys()))
@@ -56,14 +45,13 @@ def guess_word(request: GuessRequest):
     temp = Jeu_complet.temperature(rank, len(ranking))
     emoji = Jeu_complet.get_temperature_emoji(temp)
     
-    response = {
+    return {
         "mot": mot,
         "rank": rank,
         "score": score,
         "temperature": temp,
         "emoji": emoji
     }
-    return response
 
 # -------------------------
 # ENDPOINT POUR UN INDICE
@@ -71,10 +59,7 @@ def guess_word(request: GuessRequest):
 @app.get("/hint/{level}")
 def get_hint(level: int):
     hint = Jeu_complet.get_hint(ranking, level, ranks)
-    if hint:
-        return {"hint": hint}
-    else:
-        return {"hint": "Aucun indice disponible à ce niveau"}
+    return {"hint": hint if hint else "Aucun indice disponible à ce niveau"}
 
 # -------------------------
 # ENDPOINT POUR LE TOP 10
@@ -83,8 +68,3 @@ def get_hint(level: int):
 def get_top():
     top_10 = [{"mot": word, "score": score} for word, score in ranking[:10]]
     return {"top": top_10}
-
-
-
-
-
