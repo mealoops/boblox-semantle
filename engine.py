@@ -41,7 +41,7 @@ def temperature(rank, total):
     elif rank <= 5000:
         return round(20 - (rank - 1000) / 4000 * 30, 2)
     else:
-        return round(-10 - (rank - 5000) / (27 086 - 5000) * 10, 2)
+        return round(-10 - (rank - 5000) / (27086 - 5000) * 10, 2)
 
 
 def temp_emoji(t):
@@ -180,5 +180,6 @@ class GameManager:
 
     def get(self, table_id):
         return self.tables.get(table_id)
+
 
 
