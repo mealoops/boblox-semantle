@@ -6,32 +6,40 @@ import numpy as np
 import gzip
 import os
 import urllib.request
+from typing import Optional, Dict
+import uuid
 
-app = FastAPI()
+app = FastAPI(title="Cemantix API", version="1.0.0")
 
-# ✅ CORS : Permettre à Roblox d'accéder à l'API
+# ✅ CORS : Permettre à Roblox d'accéder
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permet tous les domaines
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # -------------------------
-# MODEL POUR LES REQUÊTES
+# MODELS
 # -------------------------
+class NewGameRequest(BaseModel):
+    mode: str  # "theme_1" à "theme_19", "theme_random", "random", "hard"
+    table_id: str  # ID de la table Roblox (ex: "table1")
+
 class GuessRequest(BaseModel):
+    table_id: str
     mot: str
 
-class NewGameRequest(BaseModel):
-    mode: str  # "random", "hard", ou "theme_1", "theme_2", etc.
+class HintRequest(BaseModel):
+    table_id: str
+    level: int  # 1-4
 
 # -------------------------
-# TÉLÉCHARGER GLOVE SI ABSENT
+# TÉLÉCHARGER GLOVE
 # -------------------------
 GLOVE_FILE = "glove_cemantle_filtered.txt.gz"
-GLOVE_URL = "https://drive.usercontent.google.com/download?id=1xBJun3ZRx7y25YMZWCve6t6hTEosnG4u&export=download&authuser=1&confirm=t&uuid=fb049900-bef1-4993-aeda-497c5f148eef&at=ANTm3czvDAIkeFl7cliMlxz8oEva:1766971120225"
+GLOVE_URL = "https://your-hosted-file-url.com/glove_cemantle_filtered.txt.gz"
 
 if not os.path.exists(GLOVE_FILE):
     print(f"⏳ Téléchargement de {GLOVE_FILE}...")
@@ -39,191 +47,330 @@ if not os.path.exists(GLOVE_FILE):
         urllib.request.urlretrieve(GLOVE_URL, GLOVE_FILE)
         print(f"✅ {GLOVE_FILE} téléchargé!")
     except Exception as e:
-        print(f"❌ Erreur téléchargement: {e}")
+        print(f"⚠️ Téléchargement échoué: {e}")
 
 # -------------------------
-# IMPORT DU JEU
+# IMPORT FONCTIONS DU JEU
 # -------------------------
 import Jeu_complet
 
 # -------------------------
-# INIT DU JEU
+# CHARGEMENT INITIAL
 # -------------------------
 print("⏳ Chargement des thèmes et embeddings...")
 themes = Jeu_complet.load_secret_words("mots_secrets.txt")
 embeddings = Jeu_complet.load_glove(GLOVE_FILE, Jeu_complet.MAX_WORDS)
 print(f"✅ {len(embeddings)} mots chargés!")
 
-# Variables globales pour la session en cours
-current_secret_word = None
-current_ranking = None
-current_ranks = None
-current_mode = None
+# Liste des thèmes pour référence
+THEME_LIST = list(themes.keys()) if themes else []
 
 # -------------------------
-# ENDPOINT : SANTÉ DE L'API
+# STOCKAGE DES SESSIONS
 # -------------------------
+# sessions[table_id] = {
+#     "secret_word": str,
+#     "ranking": list,
+#     "ranks": dict,
+#     "mode": str,
+#     "attempts": int,
+#     "guesses": list
+# }
+sessions: Dict[str, dict] = {}
+
+# -------------------------
+# FONCTIONS HELPER
+# -------------------------
+def create_session(table_id: str, mode: str, secret_word: str):
+    """Créer une nouvelle session de jeu"""
+    
+    # Vérifier que le mot existe
+    if secret_word not in embeddings:
+        raise ValueError(f"Le mot '{secret_word}' n'existe pas dans le dictionnaire")
+    
+    # Calculer le ranking
+    print(f"🔍 Calcul du ranking pour '{secret_word}' (table: {table_id})...")
+    ranking = Jeu_complet.build_ranking(secret_word, embeddings)
+    ranks = Jeu_complet.build_rank_dict(ranking)
+    
+    # Créer la session
+    sessions[table_id] = {
+        "secret_word": secret_word,
+        "ranking": ranking,
+        "ranks": ranks,
+        "mode": mode,
+        "attempts": 0,
+        "guesses": []
+    }
+    
+    print(f"✅ Session créée pour {table_id}")
+    return sessions[table_id]
+
+def get_session(table_id: str):
+    """Récupérer une session existante"""
+    if table_id not in sessions:
+        raise HTTPException(status_code=404, detail=f"Aucune partie en cours pour {table_id}")
+    return sessions[table_id]
+
+def delete_session(table_id: str):
+    """Supprimer une session"""
+    if table_id in sessions:
+        del sessions[table_id]
+        print(f"🗑️ Session supprimée: {table_id}")
+
+# -------------------------
+# ENDPOINTS
+# -------------------------
+
 @app.get("/")
 def read_root():
+    """Santé de l'API"""
     return {
         "status": "online",
         "words_loaded": len(embeddings),
-        "themes": list(themes.keys()) if themes else []
+        "themes_available": len(THEME_LIST),
+        "themes": THEME_LIST,
+        "active_sessions": len(sessions)
     }
 
-# -------------------------
-# ENDPOINT : NOUVELLE PARTIE
-# -------------------------
 @app.post("/new_game")
 def new_game(request: NewGameRequest):
-    global current_secret_word, current_ranking, current_ranks, current_mode
+    """
+    Démarrer une nouvelle partie
     
+    Modes:
+    - "theme_1" à "theme_19" : Thème spécifique
+    - "theme_random" : Thème aléatoire
+    - "random" : Mot aléatoire parmi les mots secrets
+    - "hard" : Mot complètement aléatoire du dictionnaire
+    """
+    
+    table_id = request.table_id
     mode = request.mode
-    current_mode = mode
     
-    print(f"🎮 Nouvelle partie - Mode: {mode}")
+    print(f"🎮 Nouvelle partie - Table: {table_id}, Mode: {mode}")
     
-    # Mode Random
-    if mode == "random":
-        all_words = []
-        for words in themes.values():
-            all_words.extend(words)
-        
-        if not all_words:
-            current_secret_word = random.choice(list(embeddings.keys()))
-        else:
-            current_secret_word = random.choice(all_words)
+    # Supprimer l'ancienne session si elle existe
+    if table_id in sessions:
+        delete_session(table_id)
     
-    # Mode Hard
-    elif mode == "hard":
-        current_secret_word = random.choice(list(embeddings.keys()))
+    secret_word = None
     
-    # Mode Thème (theme_1, theme_2, ..., theme_random)
-    elif mode.startswith("theme_"):
-        if mode == "theme_random":
-            # Thème aléatoire
-            theme_list = list(themes.keys())
-            selected_theme = random.choice(theme_list)
-            current_secret_word = random.choice(themes[selected_theme])
-        else:
-            # Thème spécifique (theme_1, theme_2, ...)
+    try:
+        # Mode Thème spécifique (theme_1, theme_2, ...)
+        if mode.startswith("theme_") and mode != "theme_random":
             try:
                 theme_index = int(mode.split("_")[1]) - 1
-                theme_list = list(themes.keys())
                 
-                if 0 <= theme_index < len(theme_list):
-                    selected_theme = theme_list[theme_index]
-                    current_secret_word = random.choice(themes[selected_theme])
+                if 0 <= theme_index < len(THEME_LIST):
+                    selected_theme = THEME_LIST[theme_index]
+                    secret_word = random.choice(themes[selected_theme])
+                    print(f"   Thème: {selected_theme}")
                 else:
-                    raise HTTPException(status_code=400, detail="Thème invalide")
-            except:
+                    raise HTTPException(status_code=400, detail="Index de thème invalide")
+            except (ValueError, IndexError):
                 raise HTTPException(status_code=400, detail="Format de thème invalide")
+        
+        # Mode Thème aléatoire
+        elif mode == "theme_random":
+            selected_theme = random.choice(THEME_LIST)
+            secret_word = random.choice(themes[selected_theme])
+            print(f"   Thème aléatoire: {selected_theme}")
+        
+        # Mode Random (parmi les mots secrets)
+        elif mode == "random":
+            all_words = []
+            for words in themes.values():
+                all_words.extend(words)
+            secret_word = random.choice(all_words) if all_words else random.choice(list(embeddings.keys()))
+        
+        # Mode Hard (mot complètement aléatoire)
+        elif mode == "hard":
+            secret_word = random.choice(list(embeddings.keys()))
+        
+        else:
+            raise HTTPException(status_code=400, detail="Mode inconnu")
+        
+        # Créer la session
+        session = create_session(table_id, mode, secret_word)
+        
+        return {
+            "success": True,
+            "table_id": table_id,
+            "mode": mode,
+            "message": "Partie démarrée",
+            "total_words": len(embeddings)
+        }
     
-    else:
-        raise HTTPException(status_code=400, detail="Mode inconnu")
-    
-    # Vérifier que le mot existe dans les embeddings
-    if current_secret_word not in embeddings:
-        current_secret_word = random.choice(list(embeddings.keys()))
-    
-    # Construire le ranking
-    print(f"🔍 Calcul du ranking pour: {current_secret_word}")
-    current_ranking = Jeu_complet.build_ranking(current_secret_word, embeddings)
-    current_ranks = Jeu_complet.build_rank_dict(current_ranking)
-    
-    print(f"✅ Partie initialisée - Mot: {current_secret_word}")
-    
-    return {
-        "status": "ready",
-        "mode": mode,
-        "message": "Partie commencée!"
-    }
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"❌ Erreur: {e}")
+        raise HTTPException(status_code=500, detail="Erreur lors de la création de la partie")
 
-# -------------------------
-# ENDPOINT : DEVINER UN MOT
-# -------------------------
 @app.post("/guess")
 def guess_word(request: GuessRequest):
-    global current_secret_word, current_ranking, current_ranks
+    """
+    Deviner un mot
     
-    if not current_secret_word or not current_ranking or not current_ranks:
-        raise HTTPException(status_code=400, detail="Aucune partie en cours. Appelez /new_game d'abord.")
+    Retourne:
+    - rank: Position du mot (1 = mot secret)
+    - temperature: Score de proximité
+    - victory: True si c'est le mot secret
+    - secret_word: Révélé uniquement si victoire
+    """
     
-    mot = request.mot.lower()
+    session = get_session(request.table_id)
+    mot = request.mot.lower().strip()
     
+    # Vérifier si le mot existe
     if mot not in embeddings:
         return {
             "error": "Mot inconnu",
-            "found": False
+            "found": False,
+            "mot": mot
         }
     
-    rank = current_ranks[mot]
-    score = current_ranking[rank - 1][1]
-    temp = Jeu_complet.temperature(rank, len(current_ranking))
+    # Récupérer le rang
+    rank = session["ranks"][mot]
+    score = session["ranking"][rank - 1][1]
+    temp = Jeu_complet.temperature(rank, len(session["ranking"]))
+    
+    # Incrémenter les tentatives
+    session["attempts"] += 1
+    session["guesses"].append({
+        "mot": mot,
+        "rank": rank,
+        "temperature": temp
+    })
     
     # Victoire ?
     victory = (rank == 1)
     
     response = {
+        "success": True,
         "mot": mot,
         "rank": rank,
         "score": float(score),
         "temperature": float(temp),
         "found": True,
-        "victory": victory
+        "victory": victory,
+        "attempts": session["attempts"]
     }
     
     if victory:
-        response["secret_word"] = current_secret_word
+        response["secret_word"] = session["secret_word"]
+        print(f"🎉 Victoire! Table {request.table_id} a trouvé '{session['secret_word']}'")
     
     return response
 
-# -------------------------
-# ENDPOINT : INDICE
-# -------------------------
-@app.get("/hint/{level}")
-def get_hint_endpoint(level: int):
-    global current_ranking, current_ranks
+@app.post("/hint")
+def get_hint_endpoint(request: HintRequest):
+    """
+    Obtenir un indice
     
-    if not current_ranking or not current_ranks:
-        raise HTTPException(status_code=400, detail="Aucune partie en cours")
+    Niveaux:
+    1 - Mot éloigné (rang 3000-5000)
+    2 - Mot moyen (rang 500-1000)
+    3 - Mot proche (rang 100-500)
+    4 - Très proche (rang 2-20)
+    """
     
-    hint = Jeu_complet.get_hint(current_ranking, level, current_ranks)
+    session = get_session(request.table_id)
+    
+    hint = Jeu_complet.get_hint(
+        session["ranking"],
+        request.level,
+        session["ranks"]
+    )
     
     if hint:
-        return {"hint": hint, "success": True}
+        session["attempts"] += 1  # Un indice compte comme une tentative
+        return {
+            "success": True,
+            "hint": hint,
+            "level": request.level
+        }
     else:
-        return {"hint": "Aucun indice disponible", "success": False}
+        return {
+            "success": False,
+            "hint": "Aucun indice disponible à ce niveau",
+            "level": request.level
+        }
 
-# -------------------------
-# ENDPOINT : TOP MOTS
-# -------------------------
-@app.get("/top/{count}")
-def get_top(count: int = 10):
-    global current_ranking
+@app.get("/top/{table_id}/{count}")
+def get_top(table_id: str, count: int = 10):
+    """Obtenir le top N des mots les plus proches"""
     
-    if not current_ranking:
-        raise HTTPException(status_code=400, detail="Aucune partie en cours")
+    session = get_session(table_id)
     
     top_words = [
-        {"mot": word, "score": float(score)} 
-        for word, score in current_ranking[:count]
+        {"mot": word, "score": float(score)}
+        for word, score in session["ranking"][:count]
     ]
     
-    return {"top": top_words}
-
-# -------------------------
-# ENDPOINT : RÉVÉLER LE MOT (Give Up)
-# -------------------------
-@app.get("/reveal")
-def reveal_secret():
-    global current_secret_word
-    
-    if not current_secret_word:
-        raise HTTPException(status_code=400, detail="Aucune partie en cours")
-    
     return {
-        "secret_word": current_secret_word,
-        "message": "Partie terminée"
+        "success": True,
+        "top": top_words,
+        "count": len(top_words)
     }
 
+@app.post("/reveal/{table_id}")
+def reveal_secret(table_id: str):
+    """Révéler le mot secret (Give Up)"""
+    
+    session = get_session(table_id)
+    secret = session["secret_word"]
+    
+    # Supprimer la session
+    delete_session(table_id)
+    
+    return {
+        "success": True,
+        "secret_word": secret,
+        "message": "Partie terminée - Abandon"
+    }
+
+@app.delete("/session/{table_id}")
+def end_session(table_id: str):
+    """Terminer une session"""
+    
+    delete_session(table_id)
+    
+    return {
+        "success": True,
+        "message": f"Session {table_id} terminée"
+    }
+
+@app.get("/check_word/{word}")
+def check_word(word: str):
+    """Vérifier si un mot existe dans le dictionnaire"""
+    
+    word = word.lower().strip()
+    exists = word in embeddings
+    
+    return {
+        "word": word,
+        "exists": exists
+    }
+
+@app.get("/stats/{table_id}")
+def get_stats(table_id: str):
+    """Obtenir les statistiques d'une partie"""
+    
+    session = get_session(table_id)
+    
+    return {
+        "success": True,
+        "table_id": table_id,
+        "mode": session["mode"],
+        "attempts": session["attempts"],
+        "guesses": session["guesses"][-10:]  # Les 10 derniers guess
+    }
+
+# -------------------------
+# DÉMARRAGE
+# -------------------------
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
