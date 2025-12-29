@@ -27,7 +27,7 @@ MAX_WORDS = 50000
 GDRIVE_ID = "1xBJun3ZRx7y25YMZWCve6t6hTEosnG4u"  # ton fichier txt sur Drive
 if not os.path.exists(EMBEDDING_PATH):
     print("⏳ Téléchargement du fichier GloVe...")
-    url = f"https://drive.google.com/uc?id={GDRIVE_ID}"
+    url = f"https://drive.google.com/uc?id=1oLJRH97QGKeBbVxAaqUXirugUQL2Zlgi"
     gdown.download(url, EMBEDDING_PATH, quiet=False)
 
 # Charger les embeddings
@@ -77,3 +77,4 @@ def get_hint(level: int):
 def get_top():
     top_10 = [{"mot": word, "score": score} for word, score in ranking[:10]]
     return {"top": top_10}
+
