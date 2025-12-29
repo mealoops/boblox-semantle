@@ -39,7 +39,7 @@ class HintRequest(BaseModel):
 # TÉLÉCHARGER GLOVE
 # -------------------------
 GLOVE_FILE = "glove_cemantle_filtered.txt.gz"
-GLOVE_URL = "https://your-hosted-file-url.com/glove_cemantle_filtered.txt.gz"
+GLOVE_URL = "https://drive.usercontent.google.com/download?id=1xBJun3ZRx7y25YMZWCve6t6hTEosnG4u&export=download&authuser=1&confirm=t&uuid=fb049900-bef1-4993-aeda-497c5f148eef&at=ANTm3czvDAIkeFl7cliMlxz8oEva:1766971120225"
 
 if not os.path.exists(GLOVE_FILE):
     print(f"⏳ Téléchargement de {GLOVE_FILE}...")
@@ -374,3 +374,4 @@ def get_stats(table_id: str):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
