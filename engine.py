@@ -46,8 +46,8 @@ def temperature(rank, total):
 
 def temp_emoji(t):
     if t > 80: return "🌋"
-    if t > 60: return "🔥"
-    if t > 50: return "🥵"
+    if t > 60: return "🥵"
+    if t > 50: return "🔥"
     if t > 30: return "🌞"
     if t > 20: return "🌤️"
     if t > 0:  return "❄️"
@@ -180,6 +180,7 @@ class GameManager:
 
     def get(self, table_id):
         return self.tables.get(table_id)
+
 
 
 
