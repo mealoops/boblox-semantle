@@ -11,7 +11,7 @@ from typing import Dict
 # =========================
 # CONSTANTS
 # =========================
-MAX_WORDS = 40000
+MAX_WORDS = 60_500
 COMMON_WORDS = {
     "to", "if", "must", "and", "the", "a", "an", "of", "in", "on", "for",
     "with", "as", "by", "at", "from", "up", "down", "go", "make", "take",
@@ -180,6 +180,7 @@ class GameManager:
 
     def get(self, table_id):
         return self.tables.get(table_id)
+
 
 
 
