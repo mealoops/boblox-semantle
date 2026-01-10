@@ -10,7 +10,7 @@ from engine import GameEngine, GameManager
 # =========================
 # DOWNLOAD GLOVE IF NOT EXIST
 # =========================
-GLOVE_URL = "https://drive.usercontent.google.com/download?id=1oLJRH97QGKeBbVxAaqUXirugUQL2Zlgi&export=download&authuser=1&confirm=t&uuid=c00dcc32-eb1d-4608-8a67-d7d0de7c778e&at=ANTm3cxf9Sg6bCIgwqaj7w8edDha:1767028038689"
+GLOVE_URL = "https://drive.usercontent.google.com/download?id=1iyn5o7PPsTneiP9Cg_fWQtYgG0R-wbE1&export=download&authuser=0&confirm=t&uuid=2c8bcf50-c931-4bda-87d5-6509b9856718&at=ANTm3cypfvRv4k_fNWYmKMWpcvaU:1768010086374"
 GLOVE_PATH = "glove_cemantle_filtered.txt"
 
 if not os.path.exists(GLOVE_PATH):
@@ -108,3 +108,4 @@ def get_hint(req: HintRequest):
 # =========================
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
