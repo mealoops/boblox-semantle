@@ -10,8 +10,8 @@ from engine import GameEngine, GameManager
 # =========================
 # DOWNLOAD GLOVE IF NOT EXIST
 # =========================
-GLOVE_URL = "https://drive.usercontent.google.com/download?id=1iyn5o7PPsTneiP9Cg_fWQtYgG0R-wbE1&export=download&authuser=0&confirm=t&uuid=2c8bcf50-c931-4bda-87d5-6509b9856718&at=ANTm3cypfvRv4k_fNWYmKMWpcvaU:1768010086374"
-GLOVE_PATH = "glove.6B.300d_no_numbers.txt"
+GLOVE_URL = "https://drive.usercontent.google.com/download?id=1qQOnWdaZSuWxoSRnC6Qv_7hAnNx09Ofj&export=download&authuser=1&confirm=t&uuid=372841b8-273e-4aa1-a1c9-80101cc51811&at=ANTm3cwvrhrj_0LXdgZUGfhqVkq-:1768073072955"
+GLOVE_PATH = "glove.6B.300d.top60k.txt"
 
 if not os.path.exists(GLOVE_PATH):
     print("⏳ Téléchargement de GloVe...")
@@ -108,5 +108,6 @@ def get_hint(req: HintRequest):
 # =========================
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 
 
